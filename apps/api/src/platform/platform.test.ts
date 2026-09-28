@@ -121,6 +121,18 @@ describe('authentication and same-origin protection', () => {
     expect(errorCode(response)).toBe('VALIDATION_ERROR');
   });
 
+  it('lists only users whose demo key is a known demo identity', async () => {
+    const stray = await harness.db.user.create({ data: { demoKey: 'superuser', displayName: 'Stray', role: 'ADMIN' } });
+    try {
+      const response = await harness.app.inject({ method: 'GET', url: '/api/auth/demo-identities' });
+      expect(response.statusCode).toBe(200);
+      const { identities } = response.json<{ identities: { key: string }[] }>();
+      expect(identities.map((identity) => identity.key)).toEqual(['admin', 'analyst', 'viewer']);
+    } finally {
+      await harness.db.user.delete({ where: { id: stray.id } });
+    }
+  });
+
   it('does not mount demo login when demo auth is disabled', async () => {
     const app = await buildApp({
       config: {
