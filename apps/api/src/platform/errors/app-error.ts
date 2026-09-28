@@ -53,3 +53,10 @@ export class ConflictError extends AppError {
     this.name = 'ConflictError';
   }
 }
+
+export class InternalError extends AppError {
+  constructor(message = 'An unexpected error occurred') {
+    super('INTERNAL_ERROR', 500, message);
+    this.name = 'InternalError';
+  }
+}
