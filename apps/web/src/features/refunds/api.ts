@@ -1,12 +1,8 @@
 import { refundDecisionResponseSchema, refundDetailSchema, refundListResponseSchema } from '@fintech-demo/contracts';
 import type { DecisionRequest, RefundDecisionResponse, RefundDetail, RefundListQuery, RefundSummary } from '@fintech-demo/contracts';
-import { apiRequest } from '../../shared/api/index.js';
+import { apiRequest, makeQueryKeys } from '../../shared/api/index.js';
 
-export const refundQueryKeys = {
-  all: ['refunds'] as const,
-  list: (query: RefundListQuery) => ['refunds', 'list', query] as const,
-  detail: (id: string) => ['refunds', 'detail', id] as const,
-};
+export const refundQueryKeys = makeQueryKeys<RefundListQuery>('refunds');
 
 export async function fetchRefunds(query: RefundListQuery): Promise<RefundSummary[]> {
   const response = await apiRequest('/api/refunds', refundListResponseSchema, { query });

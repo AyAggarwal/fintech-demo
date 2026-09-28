@@ -1,12 +1,8 @@
 import { auditEventSchema, auditListResponseSchema } from '@fintech-demo/contracts';
 import type { AuditEvent, AuditListQuery } from '@fintech-demo/contracts';
-import { apiRequest } from '../../shared/api/index.js';
+import { apiRequest, makeQueryKeys } from '../../shared/api/index.js';
 
-export const auditQueryKeys = {
-  all: ['audit'] as const,
-  list: (query: Partial<AuditListQuery>) => ['audit', 'list', query] as const,
-  detail: (id: string) => ['audit', 'detail', id] as const,
-};
+export const auditQueryKeys = makeQueryKeys<Partial<AuditListQuery>>('audit');
 
 export async function fetchAuditEvents(query: Partial<AuditListQuery>): Promise<AuditEvent[]> {
   const response = await apiRequest('/api/audit-events', auditListResponseSchema, { query });

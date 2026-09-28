@@ -1,18 +1,17 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { FeatureFlag, PrivilegedActionInput } from '@fintech-demo/contracts';
 import { useSession } from '../../shared/auth/index.js';
 import { ActionDialog, ActionResult, Alert, Badge, PageHeader, Panel, QueryState } from '../../shared/components/index.js';
 import type { ActionResultInfo } from '../../shared/components/index.js';
 import { formatDateTime } from '../../shared/format.js';
 import { useUrlTextParam } from '../../shared/hooks/index.js';
-import { EntityAuditTrail, auditQueryKeys } from '../audit/index.js';
+import { EntityAuditTrail, useAuditedMutation } from '../audit/index.js';
 import { featureFlagQueryKeys, fetchFeatureFlags, updateFeatureFlag } from './api.js';
 
 export function FeatureFlagsPage() {
   const { hasPermission } = useSession();
   const canWrite = hasPermission('feature-flags:write');
-  const queryClient = useQueryClient();
   const [pendingToggle, setPendingToggle] = useState<FeatureFlag | null>(null);
   const [selectedId, setSelectedId] = useUrlTextParam('selected');
   const [result, setResult] = useState<ActionResultInfo | null>(null);
@@ -21,16 +20,13 @@ export function FeatureFlagsPage() {
   const selected = list.data?.find((flag) => flag.id === selectedId);
   const enabledCount = list.data?.filter((flag) => flag.enabled).length;
 
-  const toggle = useMutation({
+  const toggle = useAuditedMutation({
+    featureKey: featureFlagQueryKeys.all,
     mutationFn: ({ flag, input }: { flag: FeatureFlag; input: PrivilegedActionInput }) =>
       updateFeatureFlag(flag.id, { enabled: !flag.enabled, ...input }),
-    onSuccess: async (response) => {
+    onResult: (response) => {
       setResult({ message: `${response.flag.key} is now ${response.flag.enabled ? 'enabled' : 'disabled'}.`, auditEventId: response.auditEventId });
       setSelectedId(response.flag.id);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: featureFlagQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: auditQueryKeys.all }),
-      ]);
     },
   });
 
