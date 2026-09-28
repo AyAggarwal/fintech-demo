@@ -1,10 +1,11 @@
+import { LOCAL_DEV_DEFAULTS } from '@fintech-demo/contracts';
 import { z } from 'zod';
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  API_PORT: z.coerce.number().int().positive().default(3001),
-  API_HOST: z.string().default('127.0.0.1'),
-  WEB_ORIGIN: z.url().default('http://localhost:5173'),
+  API_PORT: z.coerce.number().int().positive().default(LOCAL_DEV_DEFAULTS.API_PORT),
+  API_HOST: z.string().default(LOCAL_DEV_DEFAULTS.API_HOST),
+  WEB_ORIGIN: z.url().default(LOCAL_DEV_DEFAULTS.WEB_ORIGIN),
   DEMO_AUTH_ENABLED: z.enum(['true', 'false']).default('false'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

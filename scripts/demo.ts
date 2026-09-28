@@ -16,6 +16,9 @@ import { copyFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 
+import { resolveLocalDevEndpoints } from '@fintech-demo/contracts';
+import type { LocalDevEndpoints } from '@fintech-demo/contracts';
+
 import * as postgres from './postgres.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -162,6 +165,11 @@ function readEnv(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
 
+function localDevEndpoints(): LocalDevEndpoints {
+  loadEnv();
+  return resolveLocalDevEndpoints(process.env);
+}
+
 function portIsFree(port: number, host: string): Promise<boolean> {
   return new Promise((resolvePort) => {
     const server = createServer();
@@ -177,10 +185,10 @@ function portIsFree(port: number, host: string): Promise<boolean> {
   });
 }
 
-async function checkPorts(apiPort: number, apiHost: string): Promise<void> {
+async function checkPorts({ apiHost, apiPort, webPort }: LocalDevEndpoints): Promise<void> {
   const busy: string[] = [];
   if (!(await portIsFree(apiPort, apiHost))) busy.push(`${apiHost}:${apiPort} (API)`);
-  if (!(await portIsFree(5173, '127.0.0.1'))) busy.push('localhost:5173 (web)');
+  if (!(await portIsFree(webPort, '127.0.0.1'))) busy.push(`localhost:${webPort} (web)`);
   if (busy.length > 0) {
     fail(`Port already in use: ${busy.join(', ')}. Is another \`npm run dev\` running?`);
   }
@@ -204,11 +212,10 @@ async function up(options: Options): Promise<void> {
   checkPrerequisites();
   ensureEnvFile();
 
-  const webUrl = readEnv('WEB_ORIGIN', 'http://localhost:5173');
-  const apiPort = Number(readEnv('API_PORT', '3001'));
-  const apiHost = readEnv('API_HOST', '127.0.0.1');
+  const endpoints = localDevEndpoints();
+  const webUrl = endpoints.webOrigin;
   if (options.start) {
-    await checkPorts(apiPort, apiHost);
+    await checkPorts(endpoints);
   }
 
   await startDatabase();
@@ -257,13 +264,11 @@ async function status(): Promise<void> {
       : 'not created yet (npm run demo creates it)';
   console.log(`  PostgreSQL            ${pgState}`);
   console.log(`  .env                  ${existsSync(ENV_FILE) ? 'present' : 'missing (npm run demo creates it)'}`);
-  const apiPort = readEnv('API_PORT', '3001');
-  const apiHost = readEnv('API_HOST', '127.0.0.1');
-  const webUrl = readEnv('WEB_ORIGIN', 'http://localhost:5173');
-  const apiUp = await httpOk(`http://${apiHost}:${apiPort}/api/health`);
-  const webUp = await httpOk(webUrl);
-  console.log(`  API                   ${apiUp ? `up at http://${apiHost}:${apiPort}` : 'down'}`);
-  console.log(`  Web                   ${webUp ? `up at ${webUrl}` : 'down'}`);
+  const { apiUrl, webOrigin } = localDevEndpoints();
+  const apiUp = await httpOk(`${apiUrl}/api/health`);
+  const webUp = await httpOk(webOrigin);
+  console.log(`  API                   ${apiUp ? `up at ${apiUrl}` : 'down'}`);
+  console.log(`  Web                   ${webUp ? `up at ${webOrigin}` : 'down'}`);
   console.log();
 }
 
