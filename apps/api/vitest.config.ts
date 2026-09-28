@@ -1,10 +1,12 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 import { defineConfig } from 'vitest/config';
 
+// The repo .env wins over shell variables so a global DATABASE_URL cannot redirect the tests.
 const rootEnvFile = resolve(import.meta.dirname, '../../.env');
 if (existsSync(rootEnvFile)) {
-  process.loadEnvFile(rootEnvFile);
+  Object.assign(process.env, parseEnv(readFileSync(rootEnvFile, 'utf8')));
 }
 
 export default defineConfig({

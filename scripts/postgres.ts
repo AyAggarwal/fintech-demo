@@ -10,13 +10,15 @@
  *   npm run db:status  running / stopped
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { arch, platform } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const ENV_FILE = resolve(ROOT, '.env');
 export const PG_HOME = resolve(ROOT, '.postgres');
 const DATA_DIR = resolve(PG_HOME, 'data');
 const LOG_FILE = resolve(PG_HOME, 'postgres.log');
@@ -76,6 +78,13 @@ export function isRunning(): boolean {
   return isInitialised() && pgCtl(['status']).status === 0;
 }
 
+/** Port the running cluster listens on (line 4 of postmaster.pid), or null when not running. */
+export function runningPort(): number | null {
+  if (!isRunning()) return null;
+  const port = Number(readFileSync(resolve(DATA_DIR, 'postmaster.pid'), 'utf8').split('\n')[3]);
+  return Number.isInteger(port) ? port : null;
+}
+
 export function initialise(): void {
   mkdirSync(PG_HOME, { recursive: true });
   const pwfile = resolve(PG_HOME, 'pwfile');
@@ -111,6 +120,22 @@ export function stop(): void {
   }
 }
 
+/**
+ * Loads the repo `.env` into `process.env`, letting the file win over variables already exported in
+ * the shell (a global DATABASE_URL from another project must not redirect the demo). Returns the
+ * names that were overridden so callers can say so.
+ */
+export function loadRepoEnv(): string[] {
+  if (!existsSync(ENV_FILE)) return [];
+  const overridden: string[] = [];
+  for (const [name, value] of Object.entries(parseEnv(readFileSync(ENV_FILE, 'utf8')))) {
+    const current = process.env[name];
+    if (current !== undefined && current !== value) overridden.push(name);
+    process.env[name] = value;
+  }
+  return overridden;
+}
+
 /** Deletes the cluster entirely (all databases). */
 export function destroy(): void {
   if (isRunning()) stop();
@@ -119,8 +144,7 @@ export function destroy(): void {
 
 function main(): void {
   const command = process.argv[2] ?? 'status';
-  const envFile = resolve(ROOT, '.env');
-  if (existsSync(envFile)) process.loadEnvFile(envFile);
+  loadRepoEnv();
   const port = portFromUrl(process.env.DATABASE_URL);
   switch (command) {
     case 'start':

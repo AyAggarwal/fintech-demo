@@ -1,11 +1,13 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 import { defineConfig } from '@playwright/test';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
+// The repo .env wins over shell variables so a global DATABASE_URL cannot redirect the tests.
 const rootEnvFile = resolve(repoRoot, '.env');
 if (existsSync(rootEnvFile)) {
-  process.loadEnvFile(rootEnvFile);
+  Object.assign(process.env, parseEnv(readFileSync(rootEnvFile, 'utf8')));
 }
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;

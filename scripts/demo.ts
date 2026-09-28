@@ -19,7 +19,7 @@ import { resolve } from 'node:path';
 import * as postgres from './postgres.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const ENV_FILE = resolve(ROOT, '.env');
+const ENV_FILE = postgres.ENV_FILE;
 const ENV_EXAMPLE = resolve(ROOT, '.env.example');
 const API_WORKSPACE = '@fintech-demo/api';
 const MIN_NODE_MAJOR = 20;
@@ -94,17 +94,33 @@ function ensureEnvFile(): void {
   ok('.env created from .env.example (local-only defaults, nothing secret)');
 }
 
+let envLoaded = false;
+/** Reads `.env` (once) so this process and every child it spawns see the repo settings, not the shell's. */
+function loadEnv(): void {
+  if (envLoaded) return;
+  envLoaded = true;
+  const overridden = postgres.loadRepoEnv();
+  if (overridden.length > 0) {
+    ok(`.env takes precedence over shell variables: ${overridden.join(', ')}`);
+  }
+}
+
 function databasePort(): number {
   return postgres.portFromUrl(readEnv('DATABASE_URL', ''));
 }
 
 async function startDatabase(): Promise<void> {
   step('PostgreSQL (local, from npm-installed binaries)');
-  if (postgres.isRunning()) {
+  const port = databasePort();
+  const current = postgres.runningPort();
+  if (current === port) {
     ok('already running');
     return;
   }
-  const port = databasePort();
+  if (current !== null) {
+    postgres.stop();
+    ok(`stopped the cluster running on port ${current}; DATABASE_URL now says ${port}`);
+  }
   if (!(await portIsFree(port, '127.0.0.1'))) {
     fail(
       `Port ${port} is already in use by something else (another PostgreSQL?). ` +
@@ -136,12 +152,8 @@ function reset(): void {
   ok('Database reset and re-seeded');
 }
 
-let envLoaded = false;
 function readEnv(name: string, fallback: string): string {
-  if (!envLoaded && existsSync(ENV_FILE)) {
-    process.loadEnvFile(ENV_FILE);
-    envLoaded = true;
-  }
+  loadEnv();
   return process.env[name] ?? fallback;
 }
 
@@ -231,8 +243,9 @@ async function httpOk(url: string): Promise<boolean> {
 
 async function status(): Promise<void> {
   step('Status');
-  const pgState = postgres.isRunning()
-    ? `running on 127.0.0.1:${databasePort()}`
+  const runningPort = postgres.runningPort();
+  const pgState = runningPort !== null
+    ? `running on 127.0.0.1:${runningPort}`
     : postgres.isInitialised()
       ? 'stopped'
       : 'not created yet (npm run demo creates it)';
