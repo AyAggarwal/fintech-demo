@@ -135,6 +135,11 @@ async function startDatabase(): Promise<void> {
   ok(`listening on 127.0.0.1:${port}`);
 }
 
+function generatePrismaClient(): void {
+  step('Generating Prisma client');
+  npmWorkspace('prisma:generate');
+}
+
 function migrate(): void {
   step('Applying committed migrations (prisma migrate deploy)');
   npmWorkspace('db:migrate');
@@ -207,6 +212,7 @@ async function up(options: Options): Promise<void> {
   }
 
   await startDatabase();
+  generatePrismaClient();
   migrate();
   seed();
 
@@ -296,12 +302,14 @@ async function main(): Promise<void> {
       checkPrerequisites();
       ensureEnvFile();
       await startDatabase();
+      generatePrismaClient();
       reset();
       break;
     case 'seed':
       checkPrerequisites();
       ensureEnvFile();
       await startDatabase();
+      generatePrismaClient();
       migrate();
       seed();
       break;
