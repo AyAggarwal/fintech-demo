@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { refundStatusSchema } from '@fintech-demo/contracts';
 import type { RefundStatus, RefundSummary } from '@fintech-demo/contracts';
-import { DataTable, PageHeader, Panel, QueryState, StatusBadge } from '../../shared/components/index.js';
+import { DataTable, PageHeader, Panel, QueryState, SearchInput, StatusBadge } from '../../shared/components/index.js';
 import type { Column } from '../../shared/components/index.js';
 import { formatDateTime, formatMoney } from '../../shared/format.js';
 import { useUrlEnumParam, useUrlTextParam } from '../../shared/hooks/index.js';
@@ -50,7 +50,7 @@ export function RefundsPage() {
               </label>
               <label>
                 Search
-                <input value={search ?? ''} onChange={(e) => { setSearch(e.target.value); }} placeholder="Reference or customer" />
+                <SearchInput value={search} onCommit={setSearch} placeholder="Reference or customer" testId="refund-search" />
               </label>
             </div>
           }

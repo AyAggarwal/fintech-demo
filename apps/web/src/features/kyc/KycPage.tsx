@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { kycStatusSchema, riskLevelSchema } from '@fintech-demo/contracts';
 import type { KycCaseSummary, KycStatus, RiskLevel } from '@fintech-demo/contracts';
-import { DataTable, PageHeader, Panel, QueryState, StatusBadge } from '../../shared/components/index.js';
+import { DataTable, PageHeader, Panel, QueryState, SearchInput, StatusBadge } from '../../shared/components/index.js';
 import type { Column } from '../../shared/components/index.js';
 import { formatDateTime, formatEnumLabel } from '../../shared/format.js';
 import { useUrlEnumParam, useUrlTextParam } from '../../shared/hooks/index.js';
@@ -57,7 +57,7 @@ export function KycPage() {
               </label>
               <label>
                 Search
-                <input value={search ?? ''} onChange={(e) => { setSearch(e.target.value); }} placeholder="Reference or applicant" />
+                <SearchInput value={search} onCommit={setSearch} placeholder="Reference or applicant" testId="kyc-search" />
               </label>
             </div>
           }

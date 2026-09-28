@@ -24,6 +24,11 @@ test('a viewer sees read-only state and the API refuses its mutations', async ({
   await page.reload();
   await expect(page.getByTestId('refund-status')).toHaveText('PENDING');
 
+  await page.getByTestId('refund-search').pressSequentially('NO-SUCH-REFUND', { delay: 5 });
+  await expect(page.getByTestId('refund-search')).toHaveValue('NO-SUCH-REFUND');
+  await expect(page).toHaveURL(/search=NO-SUCH-REFUND/);
+  await expect(page.getByText('No refunds match these filters.')).toBeVisible();
+
   await page.getByRole('link', { name: 'Feature flags' }).click();
   await expect(page.getByTestId('flags-readonly-notice')).toBeVisible();
   await expect(page.getByTestId('flag-toggle-console.dark-mode')).toBeDisabled();

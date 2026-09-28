@@ -3,6 +3,7 @@ export type { AlertKind } from './Alert.js';
 export { Badge, StatusBadge } from './Badge.js';
 export { Panel, PageHeader } from './Panel.js';
 export { DataTable } from './DataTable.js';
+export { SearchInput } from './SearchInput.js';
 export type { Column } from './DataTable.js';
 export { QueryState } from './QueryState.js';
 export { KeyValueList } from './KeyValueList.js';

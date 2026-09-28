@@ -12,13 +12,13 @@ Prereq: `cp .env.example .env && npm install && npm run db:setup && npm run dev`
 3. **Feature flags** → the read-only banner is shown and every Enable/Disable button is disabled.
    (The API returns `403 FORBIDDEN` for the same calls even without the UI — the Playwright suite
    proves this with a direct request from the viewer's session.)
-4. **Sign out**.
+4. **Switch identity** (in the identity card).
 
 ## 2. Permitted action — Operations analyst (≈30 s)
 
 1. Sign in as **Demo Ops Analyst**.
-2. **Refunds** → filter *Pending* → click `RF-1001` → **Approve** → optionally type a reason →
-   **Confirm**.
+2. **Refunds** → filter *PENDING* → click `RF-1001` → **Approve** → optionally type a reason →
+   **Record approval**.
 3. Status flips to `APPROVED`, a success banner links to the audit event, and the record's audit
    trail shows *Refund approved · RF-1001* with actor, before/after state, and the reason.
 4. Press **Approve** again? It is gone — the record is no longer pending. A second decision via the
@@ -28,8 +28,8 @@ Prereq: `cp .env.example .env && npm install && npm run db:setup && npm run dev`
 
 ## 3. Admin-only write — Administrator (≈20 s)
 
-1. Sign out, sign in as **Demo Administrator**.
-2. **Feature flags** → **Enable** on `ops.bulk-actions` → **Confirm**. State becomes `ENABLED` and the
+1. **Switch identity**, sign in as **Demo Administrator**.
+2. **Feature flags** → **Enable** on `ops.bulk-actions` → **Enable flag**. State becomes `ENABLED` and the
    audit trail shows *Feature flag enabled · ops.bulk-actions*.
 3. **Audit** → filter by entity type to see refunds, KYC, and flags in one trail.
 

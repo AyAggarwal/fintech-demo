@@ -4,16 +4,21 @@ import { useSearchParams } from 'react-router-dom';
 type Setter = (value: string) => void;
 
 function useSetParam(key: string, resetKeys: readonly string[]): Setter {
-  const [params, setParams] = useSearchParams();
+  const [, setParams] = useSearchParams();
   return useCallback(
     (value: string) => {
-      const next = new URLSearchParams(params);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      for (const resetKey of resetKeys) next.delete(resetKey);
-      setParams(next);
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (value) next.set(key, value);
+          else next.delete(key);
+          for (const resetKey of resetKeys) next.delete(resetKey);
+          return next;
+        },
+        { replace: true },
+      );
     },
-    [key, params, resetKeys, setParams],
+    [key, resetKeys, setParams],
   );
 }
 
