@@ -1,0 +1,39 @@
+{
+  "name": "@fintech-demo/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "start": "node --env-file=../../.env dist/server.js",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "prisma generate && tsc --noEmit -p tsconfig.json",
+    "test": "tsx --env-file=../../.env scripts/prepare-test-db.ts && vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "dotenv -e ../../.env -- prisma migrate deploy",
+    "db:migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "db:seed": "tsx --env-file=../../.env prisma/seed.ts",
+    "db:reset": "dotenv -e ../../.env -- prisma migrate reset --force --skip-seed && npm run db:seed",
+    "db:test:setup": "tsx --env-file=../../.env scripts/prepare-test-db.ts",
+    "prisma:generate": "prisma generate"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.0.1",
+    "@fintech-demo/contracts": "*",
+    "@prisma/client": "^6.19.0",
+    "fastify": "^5.6.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "dotenv-cli": "^11.0.0",
+    "prisma": "^6.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.0"
+  }
+}
