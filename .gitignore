@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*.local
+*.log
+.DS_Store
+tests/e2e/.playwright/
+playwright-report/
+test-results/
+apps/api/generated/
