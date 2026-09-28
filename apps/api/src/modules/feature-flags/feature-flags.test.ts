@@ -64,6 +64,9 @@ describe('feature flags', () => {
 
     expect(response.statusCode).toBe(409);
     expect(errorCode(response)).toBe('CONFLICT');
+    expect(response.json()).toMatchObject({
+      error: { message: 'Feature flag kyc.enhanced-review-queue is already enabled' },
+    });
     expect(await harness.db.auditEvent.count()).toBe(0);
   });
 

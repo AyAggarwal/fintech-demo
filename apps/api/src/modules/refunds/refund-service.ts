@@ -2,8 +2,8 @@ import type { DecisionRequest, RefundDecisionResponse, RefundDetail, RefundListQ
 import { requirePermission } from '../../platform/authorization/index.js';
 import type { Actor } from '../../platform/authorization/index.js';
 import type { DatabaseClient } from '../../platform/database/index.js';
-import { ConflictError, NotFoundError } from '../../platform/errors/index.js';
-import { executePrivilegedAction } from '../../platform/policies/index.js';
+import { NotFoundError } from '../../platform/errors/index.js';
+import { applyGuardedTransition, decisionSnapshot, executePrivilegedAction } from '../../platform/policies/index.js';
 import { applyRefundDecision, findRefundDetail, listRefunds } from './refund-repository.js';
 
 export interface RefundService {
@@ -15,15 +15,6 @@ export interface RefundService {
 export interface RefundServiceDependencies {
   db: DatabaseClient;
   now?: () => Date;
-}
-
-function decisionSnapshot(refund: RefundDetail): Record<string, string | null> {
-  return {
-    status: refund.status,
-    decidedAt: refund.decidedAt,
-    decidedByName: refund.decidedByName,
-    decisionReason: refund.decisionReason,
-  };
 }
 
 /** Approving a refund records a simulated decision only. No money moves and no processor is called. */
@@ -50,36 +41,19 @@ export function createRefundService({ db, now = () => new Date() }: RefundServic
         action: request.decision === 'APPROVED' ? 'refund.approved' : 'refund.rejected',
         entityType: 'REFUND',
         input: request,
-        apply: async (tx, { reason }) => {
-          const before = await findRefundDetail(tx, id);
-          if (!before) {
-            throw new NotFoundError('Refund', id);
-          }
-          if (before.status !== 'PENDING') {
-            throw new ConflictError(`Refund ${before.reference} is already ${before.status.toLowerCase()}`);
-          }
-          const changed = await applyRefundDecision(tx, {
+        apply: (tx, { reason }) =>
+          applyGuardedTransition(tx, {
+            entityName: 'Refund',
             id,
-            decision: request.decision,
-            actorId: actor.id,
-            reason,
-            decidedAt: now(),
-          });
-          if (changed !== 1) {
-            throw new ConflictError(`Refund ${before.reference} was decided by another request`);
-          }
-          const after = await findRefundDetail(tx, id);
-          if (!after) {
-            throw new NotFoundError('Refund', id);
-          }
-          return {
-            entityId: after.id,
-            entityLabel: after.reference,
-            before: decisionSnapshot(before),
-            after: decisionSnapshot(after),
-            result: after,
-          };
-        },
+            find: findRefundDetail,
+            label: (refund) => refund.reference,
+            snapshot: decisionSnapshot,
+            rejectTransition: (refund) =>
+              refund.status === 'PENDING' ? null : `Refund ${refund.reference} is already ${refund.status.toLowerCase()}`,
+            apply: (tx) =>
+              applyRefundDecision(tx, { id, decision: request.decision, actorId: actor.id, reason, decidedAt: now() }),
+            lostRaceMessage: (refund) => `Refund ${refund.reference} was decided by another request`,
+          }),
       });
       return { refund: outcome.result, decision: request.decision, auditEventId: outcome.auditEventId };
     },

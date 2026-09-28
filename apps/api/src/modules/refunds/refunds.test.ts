@@ -64,6 +64,7 @@ describe('refund decisions', () => {
     expect(errorCode(second)).toBe('CONFLICT');
 
     const stored = await harness.db.refund.findUniqueOrThrow({ where: { id } });
+    expect(second.json()).toMatchObject({ error: { message: `Refund ${stored.reference} is already rejected` } });
     expect(stored.status).toBe('REJECTED');
     expect(await harness.db.auditEvent.count({ where: { entityId: id } })).toBe(1);
   });
