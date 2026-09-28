@@ -1,6 +1,7 @@
 # Demo walkthrough (60–90 seconds)
 
-Prereq: `cp .env.example .env && npm install && npm run db:setup && npm run dev`, then open
+Prereq: `npm install && npm run demo` (creates `.env`, starts PostgreSQL, migrates, seeds, starts both
+servers; `npm run demo -- reset` restores the seed data between runs), then open
 <http://localhost:5173>. Every screen shows the persistent notice
 *Synthetic data · Demo identity · No live transactions*.
 

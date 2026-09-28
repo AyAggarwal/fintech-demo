@@ -9,3 +9,4 @@ tests/e2e/.playwright/
 playwright-report/
 test-results/
 apps/api/generated/
+.vite/
