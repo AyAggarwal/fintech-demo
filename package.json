@@ -13,6 +13,7 @@
     "node": ">=20.19"
   },
   "scripts": {
+    "postinstall": "npm run prisma:generate -w @fintech-demo/api",
     "demo": "tsx scripts/demo.ts",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @fintech-demo/api\" \"npm run dev -w @fintech-demo/web\"",
     "dev:api": "npm run dev -w @fintech-demo/api",
