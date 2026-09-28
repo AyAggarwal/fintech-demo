@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/generated/**',
       '**/coverage/**',
+      '**/.vite/**',
       'tests/e2e/.playwright/**',
       'tests/e2e/playwright-report/**',
       'tests/e2e/test-results/**',
@@ -67,7 +68,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/**/*.ts', 'tests/e2e/**/*.ts', 'packages/**/*.ts'],
+    files: ['apps/api/**/*.ts', 'tests/e2e/**/*.ts', 'packages/**/*.ts', 'scripts/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {
