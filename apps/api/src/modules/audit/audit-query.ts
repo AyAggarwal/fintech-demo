@@ -24,6 +24,11 @@ function toAuditEvent(record: AuditEventRecord): AuditEvent {
   };
 }
 
+export async function findAuditEvent(db: DatabaseClient, id: string): Promise<AuditEvent | null> {
+  const record = await db.auditEvent.findUnique({ where: { id } });
+  return record ? toAuditEvent(record) : null;
+}
+
 export async function listAuditEvents(db: DatabaseClient, query: AuditListQuery): Promise<AuditEvent[]> {
   const records = await db.auditEvent.findMany({
     where: {

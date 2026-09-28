@@ -4,6 +4,8 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
+const FEATURE_DIRS = '{auth,refunds,kyc,feature-flags,audit}';
+
 export default tseslint.config(
   {
     ignores: [
@@ -31,12 +33,20 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      // Route handlers stay async for a uniform signature even when a branch has no await.
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
+  {
+    // Feature modules are flat directories; a sibling feature may only be imported via its index.
+    files: ['apps/*/src/modules/*/**', 'apps/*/src/features/*/**'],
+    rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['**/modules/*/!(index)', '**/features/*/!(index)'],
+              group: [`../${FEATURE_DIRS}/!(index|index.js)`, `../${FEATURE_DIRS}/*/**`],
               message: 'Import another feature only through its index.ts public surface.',
             },
           ],

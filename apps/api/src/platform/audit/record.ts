@@ -15,7 +15,7 @@ export interface AuditEventInput {
 }
 
 function toStoredJson(value: JsonValue): Prisma.InputJsonValue | typeof Prisma.JsonNull {
-  return value === null ? Prisma.JsonNull : value;
+  return value ?? Prisma.JsonNull;
 }
 
 /**

@@ -4,7 +4,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   API_PORT: z.coerce.number().int().positive().default(3001),
   API_HOST: z.string().default('127.0.0.1'),
-  WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
+  WEB_ORIGIN: z.url().default('http://localhost:5173'),
   DEMO_AUTH_ENABLED: z.enum(['true', 'false']).default('false'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

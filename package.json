@@ -1,6 +1,7 @@
 {
   "name": "fintech-demo",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "description": "Internal-tools prototype: refunds, KYC and feature flags on one shared authorization/policy/audit foundation.",
   "workspaces": [
