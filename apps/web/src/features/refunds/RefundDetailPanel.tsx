@@ -1,29 +1,25 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { Decision, PrivilegedActionInput } from '@fintech-demo/contracts';
 import { useSession } from '../../shared/auth/index.js';
 import { ActionResult, DecisionButtons, KeyValueList, Panel, QueryState, StatusBadge } from '../../shared/components/index.js';
 import type { ActionResultInfo } from '../../shared/components/index.js';
 import { formatDateTime, formatMoney } from '../../shared/format.js';
-import { EntityAuditTrail, auditQueryKeys } from '../audit/index.js';
+import { EntityAuditTrail, useAuditedMutation } from '../audit/index.js';
 import { decideRefund, fetchRefund, refundQueryKeys } from './api.js';
 
 export function RefundDetailPanel({ refundId }: { refundId: string }) {
   const { hasPermission } = useSession();
-  const queryClient = useQueryClient();
   const [result, setResult] = useState<ActionResultInfo | null>(null);
 
   const detail = useQuery({ queryKey: refundQueryKeys.detail(refundId), queryFn: () => fetchRefund(refundId) });
 
-  const decide = useMutation({
+  const decide = useAuditedMutation({
+    featureKey: refundQueryKeys.all,
     mutationFn: ({ decision, input }: { decision: Decision; input: PrivilegedActionInput }) =>
       decideRefund(refundId, { decision, ...input }),
-    onSuccess: async (response) => {
+    onResult: (response) => {
       setResult({ message: `Recorded ${response.decision.toLowerCase()} decision for ${response.refund.reference}.`, auditEventId: response.auditEventId });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: refundQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: auditQueryKeys.all }),
-      ]);
     },
   });
 
