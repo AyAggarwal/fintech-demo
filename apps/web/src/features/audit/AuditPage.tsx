@@ -59,7 +59,7 @@ export function AuditPage() {
           events.length === 0 ? (
             <div className="state">No audit events match these filters.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="audit-list">
+            <div className="stack" data-testid="audit-list">
               {events
                 .filter((event) => event.id !== eventId)
                 .map((event) => (

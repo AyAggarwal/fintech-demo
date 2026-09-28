@@ -4,9 +4,9 @@ import { formatDateTime, formatEnumLabel, formatRole } from '../../shared/format
 
 export function AuditEventCard({ event, highlighted = false }: { event: AuditEvent; highlighted?: boolean }) {
   return (
-    <div className="panel" data-testid="audit-event" data-event-id={event.id} style={highlighted ? { borderColor: 'var(--accent)' } : undefined}>
+    <div className={highlighted ? 'panel highlighted' : 'panel'} data-testid="audit-event" data-event-id={event.id}>
       <div className="panel-header">
-        <h2 style={{ fontSize: 14 }}>
+        <h2 className="section-heading">
           {formatEnumLabel(event.action)} · {event.entityLabel}
         </h2>
         <Badge tone="accent">{formatEnumLabel(event.entityType)}</Badge>
@@ -21,13 +21,13 @@ export function AuditEventCard({ event, highlighted = false }: { event: AuditEve
             { label: 'Event ID', value: <span className="mono">{event.id}</span> },
           ]}
         />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="json-compare">
           <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Before</div>
+            <div className="muted caption-label">Before</div>
             <pre className="json">{JSON.stringify(event.before, null, 2)}</pre>
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>After</div>
+            <div className="muted caption-label">After</div>
             <pre className="json">{JSON.stringify(event.after, null, 2)}</pre>
           </div>
         </div>
