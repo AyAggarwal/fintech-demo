@@ -32,6 +32,11 @@ export function KycCaseDetailPanel({ caseId }: { caseId: string }) {
       <QueryState isLoading={detail.isPending} error={detail.error} data={detail.data} loadingMessage="Loading case…">
         {(kycCase) => (
           <>
+            <div className={`detail-hero kyc-hero risk-${kycCase.riskLevel.toLowerCase()}`}>
+              <span className="detail-eyebrow">{kycCase.reference} · {formatEnumLabel(kycCase.accountType)}</span>
+              <strong>{kycCase.applicantLabel}</strong>
+              <span>{kycCase.riskFlagCount} synthetic {kycCase.riskFlagCount === 1 ? 'signal' : 'signals'} to review</span>
+            </div>
             <KeyValueList
               items={[
                 { label: 'Reference', value: <strong data-testid="kyc-reference">{kycCase.reference}</strong> },
@@ -45,22 +50,20 @@ export function KycCaseDetailPanel({ caseId }: { caseId: string }) {
                 { label: 'Decision reason', value: kycCase.decisionReason ?? '—' },
               ]}
             />
-            <h3 style={{ margin: '4px 0 0', fontSize: 13 }}>Fictional risk flags</h3>
+            <h3 className="detail-section-title">Synthetic risk signals</h3>
             {kycCase.riskFlags.length === 0 ? (
-              <div className="muted">No risk flags on this case.</div>
+              <div className="review-note">No risk flags on this case. Review the analyst note before deciding.</div>
             ) : (
-              <ul className="flags">
+              <ul className="risk-signals">
                 {kycCase.riskFlags.map((flag) => (
-                  <li key={flag.code}>
-                    <span>
-                      <span className="mono">{flag.code}</span> · {flag.label}
-                    </span>
+                  <li key={flag.code} className={`risk-${flag.severity.toLowerCase()}`}>
+                    <span><span className="mono">{flag.code}</span><strong>{flag.label}</strong></span>
                     <StatusBadge value={flag.severity} />
                   </li>
                 ))}
               </ul>
             )}
-            <div className="muted" style={{ fontSize: 12 }}>Analyst notes: {kycCase.notes}</div>
+            <div className="analyst-note"><span>ANALYST NOTE</span><p>{kycCase.notes}</p></div>
             <ActionResult result={result} />
             <DecisionButtons
               entityLabel={kycCase.reference}
@@ -68,7 +71,7 @@ export function KycCaseDetailPanel({ caseId }: { caseId: string }) {
               canDecide={hasPermission('kyc:decide')}
               onDecide={(decision, input) => decide.mutateAsync({ decision, input }).then(() => undefined)}
             />
-            <h3 style={{ margin: '8px 0 0', fontSize: 13 }}>Audit trail</h3>
+            <h3 className="detail-section-title">Decision history</h3>
             <EntityAuditTrail entityType="KYC_CASE" entityId={kycCase.id} />
           </>
         )}
