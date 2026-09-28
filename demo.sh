@@ -3,8 +3,9 @@
 #   ./demo.sh            install dependencies (if needed) and run `npm run demo`
 #   ./demo.sh reset      any argument is passed through to `npm run demo -- <args>`
 #
-# Handles the common first-run failures so nobody has to debug npm or Docker:
-#   - Node too old / missing, Docker missing or not running  -> clear message with the fix
+# Only Node.js is required: PostgreSQL binaries are installed by npm and run locally (see scripts/postgres.ts).
+# Handles the common first-run failures so nobody has to debug npm:
+#   - Node too old / missing                                  -> clear message with the fix
 #   - npm cache owned by root (EACCES from an old `sudo npm`)  -> retry with a throwaway cache, no sudo
 set -euo pipefail
 
@@ -19,11 +20,6 @@ command -v node >/dev/null 2>&1 || die "Node.js is not installed. Install Node $
 node_major="$(node -p 'process.versions.node.split(".")[0]')"
 [ "$node_major" -ge "$MIN_NODE_MAJOR" ] || die "Node.js ${MIN_NODE_MAJOR}+ is required (found $(node --version)). Upgrade via https://nodejs.org or nvm."
 echo "  ✓ Node $(node --version), npm $(npm --version)"
-
-command -v docker >/dev/null 2>&1 || die "Docker is not installed. Install Docker Desktop: https://docs.docker.com/get-docker/"
-docker info >/dev/null 2>&1 || die "Docker is installed but not running. Start Docker Desktop and re-run ./demo.sh."
-docker compose version >/dev/null 2>&1 || die "'docker compose' is unavailable. Update Docker Desktop (Compose v2 is bundled)."
-echo "  ✓ Docker running"
 
 bold "▸ Installing dependencies"
 if [ -d node_modules ] && [ node_modules/.package-lock.json -nt package-lock.json ]; then
