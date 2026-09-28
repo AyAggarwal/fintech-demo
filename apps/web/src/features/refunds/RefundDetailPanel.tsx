@@ -32,20 +32,34 @@ export function RefundDetailPanel({ refundId }: { refundId: string }) {
       <QueryState isLoading={detail.isPending} error={detail.error} data={detail.data} loadingMessage="Loading refund…">
         {(refund) => (
           <>
+            <div className="detail-hero refund-hero">
+              <span className="detail-eyebrow">Request {refund.reference}</span>
+              <strong>{formatMoney(refund.amountCents, refund.currency)}</strong>
+              <span>{refund.customerLabel} · {refund.requestReason}</span>
+            </div>
+            <div className="comparison">
+              <div><span>Requested refund</span><strong>{formatMoney(refund.amountCents, refund.currency)}</strong></div>
+              <div><span>Original transaction</span><strong>{formatMoney(refund.transaction.amountCents, refund.transaction.currency)}</strong></div>
+            </div>
+            <div className="review-note">
+              {refund.amountCents === refund.transaction.amountCents
+                ? 'Full transaction amount requested. Review the reason and merchant details before deciding.'
+                : refund.amountCents < refund.transaction.amountCents
+                  ? 'Partial transaction amount requested. Compare the request reason with the original charge.'
+                  : 'Requested amount exceeds the transaction amount. Inspect this discrepancy before deciding.'}
+            </div>
             <KeyValueList
               items={[
                 { label: 'Reference', value: <strong data-testid="refund-reference">{refund.reference}</strong> },
                 { label: 'Status', value: <span data-testid="refund-status"><StatusBadge value={refund.status} /></span> },
-                { label: 'Amount', value: formatMoney(refund.amountCents, refund.currency) },
                 { label: 'Customer', value: refund.customerLabel },
-                { label: 'Request reason', value: refund.requestReason },
                 { label: 'Requested', value: formatDateTime(refund.createdAt) },
                 { label: 'Decided', value: formatDateTime(refund.decidedAt) },
                 { label: 'Decided by', value: refund.decidedByName ?? '—' },
                 { label: 'Decision reason', value: refund.decisionReason ?? '—' },
               ]}
             />
-            <h3 style={{ margin: '4px 0 0', fontSize: 13 }}>Synthetic transaction</h3>
+            <h3 className="detail-section-title">Synthetic transaction</h3>
             <KeyValueList
               items={[
                 { label: 'Reference', value: <span className="mono">{refund.transaction.reference}</span> },
@@ -62,7 +76,7 @@ export function RefundDetailPanel({ refundId }: { refundId: string }) {
               canDecide={hasPermission('refunds:decide')}
               onDecide={(decision, input) => decide.mutateAsync({ decision, input }).then(() => undefined)}
             />
-            <h3 style={{ margin: '8px 0 0', fontSize: 13 }}>Audit trail</h3>
+            <h3 className="detail-section-title">Decision history</h3>
             <EntityAuditTrail entityType="REFUND" entityId={refund.id} />
           </>
         )}

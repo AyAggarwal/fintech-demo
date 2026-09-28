@@ -1,126 +1,42 @@
-# fintech-demo
+# Fintech demo
 
-Three thin internal tools — **Refunds**, **KYC**, **Feature flags** — on one shared foundation for
-identity, authorization, privileged-action policy, and an application audit trail.
+Three internal tools share a session, server-side permissions, privileged-action policy, PostgreSQL persistence, and an application audit trail. All identities, customers, and transactions are synthetic.
 
-Everything is synthetic: fictional data, a labeled **DEMO MODE** identity picker, simulated decisions.
-No money moves, no KYC vendor is called, no real customer data. A prototype, not a production system.
+## Start
 
-## Run the demo
-
-The only prerequisite is [Node.js](https://nodejs.org) 20+ (no Docker, no PostgreSQL install). Then:
+Requires [Node.js 20.19+](https://nodejs.org). No Docker or separate PostgreSQL install.
 
 ```bash
 ./demo.sh
 ```
 
-That installs dependencies (including PostgreSQL 16 binaries via npm), creates `.env`, starts a local
-PostgreSQL on port `54329` with its data in `.postgres/`, applies migrations, loads seed data, and
-starts the API (`:3001`) and web app (`:5173`). It tells you exactly what to fix if Node is missing,
-and works around a root-owned `~/.npm` cache without `sudo`.
-Open **<http://localhost:5173>** and pick an identity:
+This installs dependencies, starts local PostgreSQL, migrates and seeds the database, and launches the API and web app. Open <http://localhost:5173>. Use `./demo.sh reset` before a fresh walkthrough; `./demo.sh status` and `./demo.sh down` inspect or stop the database. Ctrl+C stops the app servers.
 
-| Identity | Role | Can do |
-| --- | --- | --- |
-| `viewer` | `VIEWER` | read everything |
-| `analyst` | `OPS_ANALYST` | viewer + approve / reject refunds and KYC cases |
-| `admin` | `ADMIN` | analyst + enable / disable feature flags |
+## Demo flows
 
-Other demo commands (`./demo.sh <cmd>` or, once installed, `npm run demo -- <cmd>`):
+1. **Viewer:** Sign in as `viewer`. Open refund `RF-1002` and inspect the transaction. Decision controls are unavailable. Feature flags are read-only; the API also rejects viewer writes.
+2. **Analyst:** Switch to `analyst`. Approve `RF-1001` with an optional reason. Open `KYC-2003`, inspect its high-risk synthetic signals, then reject it. Refresh both pages to show the decisions persist.
+3. **Admin:** Switch to `admin`. Enable `ops.bulk-actions` in Feature flags, then inspect its stored value and change history. This switch does not activate a real feature.
+4. **Audit:** Open Audit and filter by entity type. Check the actor, action, reason, before/after state, and time for all three decisions.
 
-```bash
-./demo.sh reset     # drop + recreate the database with fresh seed data
-./demo.sh seed      # re-seed only (clears demo decisions and audit events)
-./demo.sh status    # is Postgres / API / web up?
-./demo.sh down      # stop PostgreSQL (data kept; delete .postgres/ to wipe it)
-./demo.sh help
-```
-
-On Windows use WSL or run the steps by hand: `npm install && npm run demo`.
-
-A 60–90 second scripted walkthrough is in [docs/demo.md](docs/demo.md).
-
-## What's in the demo
-
-| App | Features |
-| --- | --- |
-| **Refunds** | Filter by status, search by reference/customer, inspect the synthetic transaction, approve or reject a `PENDING` request (simulated decision, optional reason). |
-| **KYC** | Filter by status and risk level, inspect fictional risk flags, approve or reject a `PENDING` case. |
-| **Feature flags** | See every flag's state and last change; admins enable/disable with a confirmation dialog. Non-admin writes get `403` from the API, not just a hidden button. |
-| **Audit** | One read-only trail across all three apps: actor + role snapshot, action, entity, timestamp, reason, before/after state. Each record's detail panel shows its own history too. |
-
-Shared behaviour every app gets for free:
-
-- **Server-side identity** — HTTP-only signed session cookie → `Session` row → actor and permissions.
-  Actor/role fields in request bodies are ignored. CSRF header + same-origin checks on mutations.
-- **One mutation path** — `executePrivilegedAction()`: permission check → shared action policy →
-  business change **and** audit event in a single transaction.
-- **Safe transitions** — guarded updates (`WHERE status = 'PENDING'`); repeated or competing
-  decisions return `409 CONFLICT` and never produce a second audit event.
-- **Consistent errors** — `{ error: { code, message, details? } }` with
-  `VALIDATION_ERROR | UNAUTHENTICATED | FORBIDDEN | NOT_FOUND | CONFLICT`.
-- **Persistence** — PostgreSQL; refresh the browser and everything is still there.
+Refund approvals do not move money. KYC does not call a vendor. Repeating a decision returns a conflict without another successful audit event. For a scripted tour, see [docs/demo.md](docs/demo.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Browser · apps/web (React + Vite)"]
-    UI["features/refunds · kyc · feature-flags · audit"]
-    Shared["shared/api · auth · components"]
-    UI --> Shared
-  end
-
-  subgraph API["API · apps/api (Fastify + Zod)"]
-    Auth["platform/auth<br/>session cookie · CSRF"]
-    Routes["modules/* routes<br/>validate with contracts"]
-    Policy["platform/policies<br/>executePrivilegedAction()"]
-    Authz["platform/authorization<br/>role → permissions"]
-    Audit["platform/audit<br/>recordAuditEvent()"]
-    Auth --> Routes --> Policy
-    Policy --> Authz
-    Policy --> Audit
-  end
-
-  subgraph DB["PostgreSQL (Prisma)"]
-    Tables["Refund · KycCase · FeatureFlag · Session"]
-    AuditTable["AuditEvent"]
-  end
-
-  Shared -- "/api/* (Vite proxy, cookie)" --> Auth
-  Policy -- "one transaction" --> Tables
-  Audit -- "same transaction" --> AuditTable
-
-  IdP["OIDC provider<br/>(future)"] -.-> Auth
-  Ext["Payments · KYC vendor<br/>(mocked, none called)"] -.-> Policy
+  Browser["React + Vite<br/>Refunds · KYC · Flags · Audit"] --> API["Fastify + Zod<br/>Session · permissions · policy"]
+  API --> Tx["Prisma transaction"]
+  Tx --> Data["PostgreSQL<br/>business records + audit events"]
+  OIDC["Future OIDC provider"] -.-> API
 ```
 
-`packages/contracts` holds the Zod schemas shared by API, web, and tests. Details, the request
-flow, and where a real OIDC provider plugs in: [docs/architecture.md](docs/architecture.md).
+The API resolves identity from an HTTP-only session cookie. Successful mutations and audit events commit together. The identity picker works in demo mode only; the audit trail is not a compliance store. See [docs/architecture.md](docs/architecture.md) for boundaries and limitations.
 
-## Develop
+## Checks
+
+With the local database running (`npm run db:up`):
 
 ```bash
-npm run dev          # API + web with reload (same as `npm run demo` without the setup steps)
-npm run typecheck    # tsc in every workspace + scripts/
-npm run lint         # ESLint, type-aware
-npm test             # 24 Vitest API integration tests against fintech_demo_test (real DB, no mocks)
-npm run test:e2e     # 3 Playwright browser tests (permitted action, denied role, admin toggle, refresh)
-npm run build        # production builds for contracts, API, web
+npm run typecheck && npm run lint && npm test && npm run test:e2e && npm run build
 ```
-
-`db:*` scripts (`db:up`, `db:status`, `db:down`, `db:migrate`, `db:seed`, `db:reset`) are the building
-blocks `npm run demo` uses. PostgreSQL comes from the `embedded-postgres` dev dependency and is
-driven with `initdb`/`pg_ctl` in [scripts/postgres.ts](scripts/postgres.ts); Ctrl+C stops the app
-servers but leaves PostgreSQL running until `down`.
-
-## Mocked and out of scope
-
-- **Identity** — DEMO MODE picker of three seeded users; mounted only when `DEMO_AUTH_ENABLED=true`,
-  refused when `NODE_ENV=production`. It cannot create users or roles.
-- **Payments / KYC vendors** — not integrated; a refund approval writes a decision row, nothing else.
-- **Audit** — an application audit trail, append-only by code path; not tamper-evident or
-  compliance-certified. No update/delete endpoints exist.
-- **Not built** — pagination, session rotation/MFA/rate limiting, CI workflow. Reason on privileged
-  actions is optional by design; making it required is the proposed next iteration
-  ([docs/demo.md](docs/demo.md#proposed-second-iteration)).
