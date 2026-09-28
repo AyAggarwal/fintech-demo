@@ -1,3 +1,4 @@
+import { demoIdentityKeySchema } from '@fintech-demo/contracts';
 import type { DemoIdentityKey, DemoIdentitySummary, Role } from '@fintech-demo/contracts';
 import type { DatabaseClient } from '../../platform/database/index.js';
 
@@ -39,5 +40,6 @@ export function createSeededIdentityProvider(db: DatabaseClient): IdentityProvid
 }
 
 function toDemoKey(value: string): DemoIdentityKey | null {
-  return value === 'viewer' || value === 'analyst' || value === 'admin' ? value : null;
+  const result = demoIdentityKeySchema.safeParse(value);
+  return result.success ? result.data : null;
 }
