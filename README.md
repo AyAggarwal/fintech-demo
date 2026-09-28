@@ -8,15 +8,16 @@ No money moves, no KYC vendor is called, no real customer data. A prototype, not
 
 ## Run the demo
 
-You need [Node.js](https://nodejs.org) 20+ and [Docker Desktop](https://docs.docker.com/get-docker/) running. Then:
+The only prerequisite is [Node.js](https://nodejs.org) 20+ (no Docker, no PostgreSQL install). Then:
 
 ```bash
 ./demo.sh
 ```
 
-That installs dependencies, creates `.env`, starts PostgreSQL in Docker, applies migrations, loads
-seed data, and starts the API (`:3001`) and web app (`:5173`). It tells you exactly what to fix if
-Node or Docker is missing, and works around a root-owned `~/.npm` cache without `sudo`.
+That installs dependencies (including PostgreSQL 16 binaries via npm), creates `.env`, starts a local
+PostgreSQL on port `54329` with its data in `.postgres/`, applies migrations, loads seed data, and
+starts the API (`:3001`) and web app (`:5173`). It tells you exactly what to fix if Node is missing,
+and works around a root-owned `~/.npm` cache without `sudo`.
 Open **<http://localhost:5173>** and pick an identity:
 
 | Identity | Role | Can do |
@@ -31,7 +32,7 @@ Other demo commands (`./demo.sh <cmd>` or, once installed, `npm run demo -- <cmd
 ./demo.sh reset     # drop + recreate the database with fresh seed data
 ./demo.sh seed      # re-seed only (clears demo decisions and audit events)
 ./demo.sh status    # is Postgres / API / web up?
-./demo.sh down      # stop Postgres (data kept)
+./demo.sh down      # stop PostgreSQL (data kept; delete .postgres/ to wipe it)
 ./demo.sh help
 ```
 
@@ -108,8 +109,10 @@ npm run test:e2e     # 3 Playwright browser tests (permitted action, denied role
 npm run build        # production builds for contracts, API, web
 ```
 
-`db:*` scripts (`db:up`, `db:migrate`, `db:seed`, `db:reset`, `db:down`) are the building blocks
-`npm run demo` uses.
+`db:*` scripts (`db:up`, `db:status`, `db:down`, `db:migrate`, `db:seed`, `db:reset`) are the building
+blocks `npm run demo` uses. PostgreSQL comes from the `embedded-postgres` dev dependency and is
+driven with `initdb`/`pg_ctl` in [scripts/postgres.ts](scripts/postgres.ts); Ctrl+C stops the app
+servers but leaves PostgreSQL running until `down`.
 
 ## Mocked and out of scope
 
@@ -121,6 +124,3 @@ npm run build        # production builds for contracts, API, web
 - **Not built** — pagination, session rotation/MFA/rate limiting, CI workflow. Reason on privileged
   actions is optional by design; making it required is the proposed next iteration
   ([docs/demo.md](docs/demo.md#proposed-second-iteration)).
-
-If Docker Hub rate-limits the `postgres:16-alpine` pull:
-`docker pull mirror.gcr.io/library/postgres:16-alpine && docker tag mirror.gcr.io/library/postgres:16-alpine postgres:16-alpine`.

@@ -5,23 +5,24 @@
  *   npm run demo -- reset   drop and recreate the dev database, re-seed (does not start servers)
  *   npm run demo -- seed    re-insert the seed fixtures (wipes demo decisions and audit events)
  *   npm run demo -- status  show what is running
- *   npm run demo -- down    stop the PostgreSQL container
+ *   npm run demo -- down    stop PostgreSQL
  *
  * Flags: --no-start (with `up`) prepares everything but does not start the dev servers.
+ *
+ * PostgreSQL runs from binaries installed by npm (see scripts/postgres.ts); no Docker, no system install.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
+
+import * as postgres from './postgres.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const ENV_FILE = resolve(ROOT, '.env');
 const ENV_EXAMPLE = resolve(ROOT, '.env.example');
-const CONTAINER = 'fintech-demo-postgres';
 const API_WORKSPACE = '@fintech-demo/api';
 const MIN_NODE_MAJOR = 20;
-const DB_READY_TIMEOUT_MS = 60_000;
 
 type Command = 'up' | 'reset' | 'seed' | 'status' | 'down' | 'help';
 
@@ -65,11 +66,6 @@ function run(cmd: string, args: readonly string[], cwd = ROOT): void {
   }
 }
 
-function capture(cmd: string, args: readonly string[]): string | null {
-  const result = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
 function npmWorkspace(script: string): void {
   run('npm', ['run', script, '-w', API_WORKSPACE]);
 }
@@ -81,20 +77,6 @@ function checkPrerequisites(): void {
     fail(`Node.js ${MIN_NODE_MAJOR}+ is required (found ${process.versions.node}).`);
   }
   ok(`Node.js ${process.versions.node}`);
-
-  const dockerVersion = capture('docker', ['--version']);
-  if (!dockerVersion) {
-    fail('Docker is required to run PostgreSQL. Install Docker Desktop or Docker Engine with the Compose plugin.');
-  }
-  ok(dockerVersion);
-
-  if (capture('docker', ['compose', 'version']) === null) {
-    fail('`docker compose` is not available. Install the Docker Compose plugin.');
-  }
-  if (capture('docker', ['info']) === null) {
-    fail('Docker is installed but the daemon is not running. Start Docker and retry.');
-  }
-  ok('Docker daemon reachable');
 
   if (!existsSync(resolve(ROOT, 'node_modules'))) {
     fail('Dependencies are not installed. Run `npm install` first.');
@@ -112,30 +94,29 @@ function ensureEnvFile(): void {
   ok('.env created from .env.example (local-only defaults, nothing secret)');
 }
 
-function containerHealth(): string | null {
-  return capture('docker', ['inspect', '--format', '{{.State.Health.Status}}', CONTAINER]);
+function databasePort(): number {
+  return postgres.portFromUrl(readEnv('DATABASE_URL', ''));
 }
 
 async function startDatabase(): Promise<void> {
-  step('PostgreSQL container');
-  if (containerHealth() === 'healthy') {
-    ok(`${CONTAINER} already running`);
+  step('PostgreSQL (local, from npm-installed binaries)');
+  if (postgres.isRunning()) {
+    ok('already running');
     return;
   }
-  run('docker', ['compose', 'up', '-d', 'postgres']);
-  process.stdout.write('  waiting for PostgreSQL to accept connections');
-  const deadline = Date.now() + DB_READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (containerHealth() === 'healthy') {
-      console.log();
-      ok(`${CONTAINER} healthy`);
-      return;
-    }
-    process.stdout.write('.');
-    await sleep(1_000);
+  const port = databasePort();
+  if (!(await portIsFree(port, '127.0.0.1'))) {
+    fail(
+      `Port ${port} is already in use by something else (another PostgreSQL?). ` +
+        'Change the port in DATABASE_URL and TEST_DATABASE_URL in .env, then retry.',
+    );
   }
-  console.log();
-  fail(`PostgreSQL did not become healthy within ${DB_READY_TIMEOUT_MS / 1000}s. Check: docker logs ${CONTAINER}`);
+  if (!postgres.isInitialised()) {
+    postgres.initialise();
+    ok(`cluster created in ${postgres.PG_HOME}`);
+  }
+  postgres.start(port);
+  ok(`listening on 127.0.0.1:${port}`);
 }
 
 function migrate(): void {
@@ -155,9 +136,11 @@ function reset(): void {
   ok('Database reset and re-seeded');
 }
 
+let envLoaded = false;
 function readEnv(name: string, fallback: string): string {
-  if (existsSync(ENV_FILE)) {
+  if (!envLoaded && existsSync(ENV_FILE)) {
     process.loadEnvFile(ENV_FILE);
+    envLoaded = true;
   }
   return process.env[name] ?? fallback;
 }
@@ -195,7 +178,7 @@ ${bold('Demo ready.')}  Open ${bold(webUrl)}
     ${bold('analyst')}  approve / reject refunds and KYC cases
     ${bold('admin')}    analyst + toggle feature flags
 
-  Walkthrough: docs/demo.md      Reset data: npm run demo -- reset
+  Walkthrough: docs/demo.md   Reset data: npm run demo -- reset   Stop PostgreSQL: npm run demo -- down
   ${dim('Synthetic data · Demo identity · No live transactions')}
 `);
 }
@@ -248,8 +231,12 @@ async function httpOk(url: string): Promise<boolean> {
 
 async function status(): Promise<void> {
   step('Status');
-  const health = containerHealth();
-  console.log(`  PostgreSQL container  ${health ?? 'not running'}`);
+  const pgState = postgres.isRunning()
+    ? `running on 127.0.0.1:${databasePort()}`
+    : postgres.isInitialised()
+      ? 'stopped'
+      : 'not created yet (npm run demo creates it)';
+  console.log(`  PostgreSQL            ${pgState}`);
   console.log(`  .env                  ${existsSync(ENV_FILE) ? 'present' : 'missing (npm run demo creates it)'}`);
   const apiPort = readEnv('API_PORT', '3001');
   const apiHost = readEnv('API_HOST', '127.0.0.1');
@@ -262,9 +249,13 @@ async function status(): Promise<void> {
 }
 
 function down(): void {
-  step('Stopping PostgreSQL container (data volume is kept)');
-  run('docker', ['compose', 'stop', 'postgres']);
-  ok('Stopped. `npm run demo` starts it again; `docker compose down -v` deletes the data.');
+  step('Stopping PostgreSQL (data is kept)');
+  if (!postgres.isRunning()) {
+    ok('already stopped');
+    return;
+  }
+  postgres.stop();
+  ok(`Stopped. \`npm run demo\` starts it again; delete ${postgres.PG_HOME} to wipe all data.`);
 }
 
 function help(): void {
@@ -274,8 +265,8 @@ ${bold('npm run demo')} [command] [--no-start]
   up (default)   check prerequisites, start PostgreSQL, migrate, seed, start API + web
   reset          drop and recreate the dev database with fresh seed data
   seed           re-insert seed data (removes demo decisions, sessions, audit events)
-  status         show container / API / web state
-  down           stop the PostgreSQL container (keeps data)
+  status         show PostgreSQL / API / web state
+  down           stop PostgreSQL (keeps data)
   help           this message
 
   --no-start     with \`up\`: prepare the database but do not start the dev servers
