@@ -64,7 +64,7 @@ export function DemoSignIn() {
               ))}
             </div>
           ) : null}
-          <p className="muted" style={{ fontSize: 12 }}>
+          <p className="muted caption">
             Synthetic data · Demo identity · No live transactions
           </p>
         </div>

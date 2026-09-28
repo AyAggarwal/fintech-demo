@@ -17,7 +17,7 @@ export function EntityAuditTrail({ entityType, entityId }: { entityType: AuditEn
         events.length === 0 ? (
           <div className="muted" data-testid="entity-audit-empty">No audit events for this record yet.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="entity-audit-trail">
+          <div className="stack" data-testid="entity-audit-trail">
             {events.map((event) => (
               <AuditEventCard key={event.id} event={event} />
             ))}

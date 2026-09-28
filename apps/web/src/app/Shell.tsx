@@ -16,7 +16,7 @@ export function Shell() {
   const queryClient = useQueryClient();
 
   if (session.status === 'loading') {
-    return <div className="state" style={{ padding: 48 }}>Checking session…</div>;
+    return <div className="state fullscreen">Checking session…</div>;
   }
   if (session.status === 'error') {
     return (
@@ -49,7 +49,7 @@ export function Shell() {
           ))}
         </nav>
         <div className="identity-card" data-testid="identity-card">
-          <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>DEMO IDENTITY</div>
+          <div className="muted identity-label">DEMO IDENTITY</div>
           <div className="name" data-testid="identity-name">{session.user.displayName}</div>
           <div className="role" data-testid="identity-role">{formatRole(session.user.role)}</div>
           <button type="button" className="btn small" onClick={() => void handleSignOut()} data-testid="sign-out">
