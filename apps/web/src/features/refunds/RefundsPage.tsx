@@ -22,21 +22,10 @@ export function RefundsPage() {
   const [search, setSearch] = useUrlTextParam('search');
   const [selectedId, setSelectedId] = useUrlTextParam('selected');
 
-  const overview = useQuery({
-    queryKey: refundQueryKeys.list({}),
-    queryFn: () => fetchRefunds({}),
-  });
   const list = useQuery({
     queryKey: refundQueryKeys.list({ status, search }),
     queryFn: () => fetchRefunds({ status, search }),
   });
-
-  const pending = overview.data?.filter((refund) => refund.status === 'PENDING') ?? [];
-  const decided = (overview.data?.length ?? 0) - pending.length;
-  const pendingCurrency = pending[0]?.currency;
-  const pendingAmount = pendingCurrency && pending.every((refund) => refund.currency === pendingCurrency)
-    ? formatMoney(pending.reduce((total, refund) => total + refund.amountCents, 0), pendingCurrency)
-    : pending.length > 0 ? 'Mixed currencies' : '—';
 
   const select = (refund: RefundSummary) => {
     setSelectedId(refund.id);
@@ -45,11 +34,6 @@ export function RefundsPage() {
   return (
     <>
       <PageHeader title="Refunds" description="Review each request against its synthetic transaction before recording a decision." />
-      <div className="metric-strip refunds-metrics" aria-label="Refund queue overview">
-        <div className="metric"><span>Awaiting review</span><strong>{overview.data ? pending.length : '—'}</strong><small>Requests still pending</small></div>
-        <div className="metric"><span>Requested amount</span><strong>{overview.data ? pendingAmount : '—'}</strong><small>Across pending requests</small></div>
-        <div className="metric"><span>Decisions recorded</span><strong>{overview.data ? decided : '—'}</strong><small>Approved or rejected</small></div>
-      </div>
       <div className="split">
         <Panel
           title="Decision queue"
