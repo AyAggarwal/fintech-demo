@@ -2,8 +2,8 @@ import type { DecisionRequest, KycCaseDetail, KycCaseSummary, KycDecisionRespons
 import { requirePermission } from '../../platform/authorization/index.js';
 import type { Actor } from '../../platform/authorization/index.js';
 import type { DatabaseClient } from '../../platform/database/index.js';
-import { ConflictError, NotFoundError } from '../../platform/errors/index.js';
-import { executePrivilegedAction } from '../../platform/policies/index.js';
+import { NotFoundError } from '../../platform/errors/index.js';
+import { applyGuardedTransition, decisionSnapshot, executePrivilegedAction } from '../../platform/policies/index.js';
 import { applyKycDecision, findKycCaseDetail, listKycCases } from './kyc-repository.js';
 
 export interface KycService {
@@ -15,15 +15,6 @@ export interface KycService {
 export interface KycServiceDependencies {
   db: DatabaseClient;
   now?: () => Date;
-}
-
-function decisionSnapshot(kycCase: KycCaseDetail): Record<string, string | null> {
-  return {
-    status: kycCase.status,
-    decidedAt: kycCase.decidedAt,
-    decidedByName: kycCase.decidedByName,
-    decisionReason: kycCase.decisionReason,
-  };
 }
 
 /** KYC decisions here are manual, fictional review outcomes. No vendor or document verification is involved. */
@@ -50,36 +41,19 @@ export function createKycService({ db, now = () => new Date() }: KycServiceDepen
         action: request.decision === 'APPROVED' ? 'kyc.approved' : 'kyc.rejected',
         entityType: 'KYC_CASE',
         input: request,
-        apply: async (tx, { reason }) => {
-          const before = await findKycCaseDetail(tx, id);
-          if (!before) {
-            throw new NotFoundError('KYC case', id);
-          }
-          if (before.status !== 'PENDING') {
-            throw new ConflictError(`KYC case ${before.reference} is already ${before.status.toLowerCase()}`);
-          }
-          const changed = await applyKycDecision(tx, {
+        apply: (tx, { reason }) =>
+          applyGuardedTransition(tx, {
+            entityName: 'KYC case',
             id,
-            decision: request.decision,
-            actorId: actor.id,
-            reason,
-            decidedAt: now(),
-          });
-          if (changed !== 1) {
-            throw new ConflictError(`KYC case ${before.reference} was decided by another request`);
-          }
-          const after = await findKycCaseDetail(tx, id);
-          if (!after) {
-            throw new NotFoundError('KYC case', id);
-          }
-          return {
-            entityId: after.id,
-            entityLabel: after.reference,
-            before: decisionSnapshot(before),
-            after: decisionSnapshot(after),
-            result: after,
-          };
-        },
+            find: findKycCaseDetail,
+            label: (kycCase) => kycCase.reference,
+            snapshot: decisionSnapshot,
+            rejectTransition: (kycCase) =>
+              kycCase.status === 'PENDING' ? null : `KYC case ${kycCase.reference} is already ${kycCase.status.toLowerCase()}`,
+            apply: (tx) =>
+              applyKycDecision(tx, { id, decision: request.decision, actorId: actor.id, reason, decidedAt: now() }),
+            lostRaceMessage: (kycCase) => `KYC case ${kycCase.reference} was decided by another request`,
+          }),
       });
       return { kycCase: outcome.result, decision: request.decision, auditEventId: outcome.auditEventId };
     },

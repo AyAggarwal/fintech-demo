@@ -2,8 +2,7 @@ import type { FeatureFlag, FeatureFlagUpdateRequest, FeatureFlagUpdateResponse }
 import { requirePermission } from '../../platform/authorization/index.js';
 import type { Actor } from '../../platform/authorization/index.js';
 import type { DatabaseClient } from '../../platform/database/index.js';
-import { ConflictError, NotFoundError } from '../../platform/errors/index.js';
-import { executePrivilegedAction } from '../../platform/policies/index.js';
+import { applyGuardedTransition, executePrivilegedAction } from '../../platform/policies/index.js';
 import { applyFeatureFlagChange, findFeatureFlag, listFeatureFlags } from './feature-flag-repository.js';
 
 export interface FeatureFlagService {
@@ -33,30 +32,20 @@ export function createFeatureFlagService({ db }: FeatureFlagServiceDependencies)
         action: request.enabled ? 'feature_flag.enabled' : 'feature_flag.disabled',
         entityType: 'FEATURE_FLAG',
         input: request,
-        apply: async (tx) => {
-          const before = await findFeatureFlag(tx, id);
-          if (!before) {
-            throw new NotFoundError('Feature flag', id);
-          }
-          if (before.enabled === request.enabled) {
-            throw new ConflictError(`Feature flag ${before.key} is already ${request.enabled ? 'enabled' : 'disabled'}`);
-          }
-          const changed = await applyFeatureFlagChange(tx, { id, enabled: request.enabled, actorId: actor.id });
-          if (changed !== 1) {
-            throw new ConflictError(`Feature flag ${before.key} was changed by another request`);
-          }
-          const after = await findFeatureFlag(tx, id);
-          if (!after) {
-            throw new NotFoundError('Feature flag', id);
-          }
-          return {
-            entityId: after.id,
-            entityLabel: after.key,
-            before: flagSnapshot(before),
-            after: flagSnapshot(after),
-            result: after,
-          };
-        },
+        apply: (tx) =>
+          applyGuardedTransition(tx, {
+            entityName: 'Feature flag',
+            id,
+            find: findFeatureFlag,
+            label: (flag) => flag.key,
+            snapshot: flagSnapshot,
+            rejectTransition: (flag) =>
+              flag.enabled === request.enabled
+                ? `Feature flag ${flag.key} is already ${request.enabled ? 'enabled' : 'disabled'}`
+                : null,
+            apply: (tx) => applyFeatureFlagChange(tx, { id, enabled: request.enabled, actorId: actor.id }),
+            lostRaceMessage: (flag) => `Feature flag ${flag.key} was changed by another request`,
+          }),
       });
       return { flag: outcome.result, auditEventId: outcome.auditEventId };
     },

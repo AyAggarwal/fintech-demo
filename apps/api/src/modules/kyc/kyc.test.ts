@@ -57,6 +57,10 @@ describe('KYC decisions', () => {
     const again = await analyst.mutate('POST', `/api/kyc-cases/${id}/decision`, { decision: 'APPROVED' });
     expect(again.statusCode).toBe(409);
     expect(errorCode(again)).toBe('CONFLICT');
+    const stored = await harness.db.kycCase.findUniqueOrThrow({ where: { id } });
+    expect(again.json()).toMatchObject({
+      error: { message: `KYC case ${stored.reference} is already ${stored.status.toLowerCase()}` },
+    });
     expect(await harness.db.auditEvent.count({ where: { entityId: id } })).toBe(1);
   });
 
