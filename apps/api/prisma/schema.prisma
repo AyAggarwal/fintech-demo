@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VIEWER
+  OPS_ANALYST
+  ADMIN
+}
+
+/// Seeded demo identities. Nothing in the API can create users; see docs/architecture.md for the OIDC boundary.
+model User {
+  id          String   @id @default(cuid())
+  /// Stable key used by the demo login endpoint (viewer | analyst | admin).
+  demoKey     String   @unique
+  displayName String
+  role        Role
+  createdAt   DateTime @default(now())
+
+  sessions       Session[]
+  auditEvents    AuditEvent[]
+  decidedRefunds Refund[]      @relation("RefundDecidedBy")
+  decidedKyc     KycCase[]     @relation("KycDecidedBy")
+  updatedFlags   FeatureFlag[] @relation("FlagUpdatedBy")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+}
+
+enum DecisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Fictional card transaction attached to a refund request. No processor integration exists.
+model SyntheticTransaction {
+  id           String   @id @default(cuid())
+  reference    String   @unique
+  merchantName String
+  amountCents  Int
+  currency     String
+  cardLast4    String
+  occurredAt   DateTime
+
+  refund Refund?
+}
+
+model Refund {
+  id             String         @id @default(cuid())
+  reference      String         @unique
+  status         DecisionStatus @default(PENDING)
+  amountCents    Int
+  currency       String
+  /// Fictional customer handle, e.g. "Customer C-1042". Never a real name or email.
+  customerLabel  String
+  requestReason  String
+  transactionId  String         @unique
+  transaction    SyntheticTransaction @relation(fields: [transactionId], references: [id])
+  createdAt      DateTime       @default(now())
+  decidedAt      DateTime?
+  decidedById    String?
+  decidedBy      User?          @relation("RefundDecidedBy", fields: [decidedById], references: [id])
+  decisionReason String?
+
+  @@index([status])
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AccountType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+model KycCase {
+  id             String         @id @default(cuid())
+  reference      String         @unique
+  status         DecisionStatus @default(PENDING)
+  /// Fictional applicant handle, e.g. "Applicant A-2007".
+  applicantLabel String
+  accountType    AccountType
+  riskLevel      RiskLevel
+  /// Array of { code, label, severity } - fictional, rule-generated flags. Not a vendor result.
+  riskFlags      Json
+  notes          String
+  createdAt      DateTime       @default(now())
+  decidedAt      DateTime?
+  decidedById    String?
+  decidedBy      User?          @relation("KycDecidedBy", fields: [decidedById], references: [id])
+  decisionReason String?
+
+  @@index([status])
+  @@index([riskLevel])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String
+  enabled     Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation("FlagUpdatedBy", fields: [updatedById], references: [id])
+}
+
+enum AuditEntityType {
+  REFUND
+  KYC_CASE
+  FEATURE_FLAG
+}
+
+/// Application audit trail. Append-only by convention (the API exposes no edit/delete endpoint);
+/// this is not an immutable or compliance-certified store.
+model AuditEvent {
+  id          String          @id @default(cuid())
+  actorId     String
+  actor       User            @relation(fields: [actorId], references: [id])
+  actorName   String
+  actorRole   Role
+  action      String
+  entityType  AuditEntityType
+  entityId    String
+  entityLabel String
+  reason      String?
+  before      Json
+  after       Json
+  createdAt   DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
