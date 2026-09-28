@@ -8,15 +8,15 @@ No money moves, no KYC vendor is called, no real customer data. A prototype, not
 
 ## Run the demo
 
-Prerequisites: Node.js ≥ 20.19, npm ≥ 10, Docker (with Compose).
+You need [Node.js](https://nodejs.org) 20+ and [Docker Desktop](https://docs.docker.com/get-docker/) running. Then:
 
 ```bash
-npm install
-npm run demo
+./demo.sh
 ```
 
-`npm run demo` checks prerequisites, creates `.env` from `.env.example`, starts PostgreSQL in Docker,
-applies migrations, loads seed data, and starts the API (`:3001`) and web app (`:5173`).
+That installs dependencies, creates `.env`, starts PostgreSQL in Docker, applies migrations, loads
+seed data, and starts the API (`:3001`) and web app (`:5173`). It tells you exactly what to fix if
+Node or Docker is missing, and works around a root-owned `~/.npm` cache without `sudo`.
 Open **<http://localhost:5173>** and pick an identity:
 
 | Identity | Role | Can do |
@@ -25,15 +25,17 @@ Open **<http://localhost:5173>** and pick an identity:
 | `analyst` | `OPS_ANALYST` | viewer + approve / reject refunds and KYC cases |
 | `admin` | `ADMIN` | analyst + enable / disable feature flags |
 
-Other demo commands:
+Other demo commands (`./demo.sh <cmd>` or, once installed, `npm run demo -- <cmd>`):
 
 ```bash
-npm run demo -- reset     # drop + recreate the database with fresh seed data
-npm run demo -- seed      # re-seed only (clears demo decisions and audit events)
-npm run demo -- status    # is Postgres / API / web up?
-npm run demo -- down      # stop Postgres (data kept)
-npm run demo -- help
+./demo.sh reset     # drop + recreate the database with fresh seed data
+./demo.sh seed      # re-seed only (clears demo decisions and audit events)
+./demo.sh status    # is Postgres / API / web up?
+./demo.sh down      # stop Postgres (data kept)
+./demo.sh help
 ```
+
+On Windows use WSL or run the steps by hand: `npm install && npm run demo`.
 
 A 60–90 second scripted walkthrough is in [docs/demo.md](docs/demo.md).
 
