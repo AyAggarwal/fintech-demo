@@ -2,6 +2,7 @@ export {
   AppError,
   ConflictError,
   ForbiddenError,
+  InternalError,
   NotFoundError,
   UnauthenticatedError,
   ValidationError,

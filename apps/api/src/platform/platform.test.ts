@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { auditEventSchema, auditListResponseSchema, CSRF_HEADER_NAME, CSRF_HEADER_VALUE } from '@fintech-demo/contracts';
 import { buildApp } from '../app.js';
+import { createSessionStore } from './auth/index.js';
 import { createTestHarness, errorCode } from '../test/harness.js';
 import type { TestHarness } from '../test/harness.js';
 
@@ -143,6 +144,35 @@ describe('authentication and same-origin protection', () => {
       });
       expect(login.statusCode).toBe(404);
       expect((await app.inject({ method: 'GET', url: '/api/auth/demo-identities' })).statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('reports a just-created session that fails to resolve as an internal error', async () => {
+    const realStore = createSessionStore(harness.db);
+    const app = await buildApp({
+      config: {
+        databaseUrl: 'unused',
+        port: 0,
+        host: '127.0.0.1',
+        webOrigin: 'http://localhost:5173',
+        demoAuthEnabled: true,
+        sessionSecret: 'integration-test-secret-0123456789abcdef',
+        secureCookies: false,
+      },
+      db: harness.db,
+      sessionStore: { ...realStore, resolveActor: async () => null },
+    });
+    try {
+      const login = await app.inject({
+        method: 'POST',
+        url: '/api/auth/demo-login',
+        headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+        payload: { identity: 'admin' },
+      });
+      expect(login.statusCode).toBe(500);
+      expect(errorCode(login)).toBe('INTERNAL_ERROR');
     } finally {
       await app.close();
     }

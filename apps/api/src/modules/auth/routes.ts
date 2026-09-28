@@ -3,7 +3,7 @@ import { demoLoginRequestSchema } from '@fintech-demo/contracts';
 import type { CurrentUser, DemoIdentitiesResponse, SessionResponse } from '@fintech-demo/contracts';
 import { clearSessionCookie, readSessionId, setSessionCookie } from '../../platform/auth/index.js';
 import type { SessionCookieOptions, SessionStore } from '../../platform/auth/index.js';
-import { NotFoundError } from '../../platform/errors/index.js';
+import { InternalError, NotFoundError } from '../../platform/errors/index.js';
 import { parseInput } from '../../platform/http/index.js';
 import type { IdentityProvider } from './demo-identity-provider.js';
 
@@ -55,7 +55,7 @@ export function registerAuthRoutes(app: FastifyInstance, options: AuthRoutesOpti
     setSessionCookie(reply, session.id, session.expiresAt, options.cookie);
     const actor = await options.sessionStore.resolveActor(session.id);
     if (!actor) {
-      throw new NotFoundError('Session', session.id);
+      throw new InternalError('Newly created session could not be resolved');
     }
     return { user: { id: actor.id, displayName: actor.displayName, role: actor.role, permissions: [...actor.permissions] } };
   });
