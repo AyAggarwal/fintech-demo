@@ -18,7 +18,6 @@ export function FeatureFlagsPage() {
 
   const list = useQuery({ queryKey: featureFlagQueryKeys.all, queryFn: fetchFeatureFlags });
   const selected = list.data?.find((flag) => flag.id === selectedId);
-  const enabledCount = list.data?.filter((flag) => flag.enabled).length;
 
   const toggle = useAuditedMutation({
     featureKey: featureFlagQueryKeys.all,
@@ -33,11 +32,6 @@ export function FeatureFlagsPage() {
   return (
     <>
       <PageHeader title="Feature flags" description="Inspect stored switches and their history. Admin changes are recorded, not connected to live product behavior." />
-      <div className="metric-strip flags-metrics" aria-label="Feature flag overview">
-        <div className="metric"><span>Stored flags</span><strong>{list.data?.length ?? '—'}</strong><small>Demo configuration</small></div>
-        <div className="metric"><span>Enabled</span><strong>{enabledCount ?? '—'}</strong><small>Currently switched on</small></div>
-        <div className="metric"><span>Disabled</span><strong>{list.data ? list.data.length - (enabledCount ?? 0) : '—'}</strong><small>Currently switched off</small></div>
-      </div>
       {canWrite ? null : (
         <Alert kind="info" testId="flags-readonly-notice">
           Your role can view flags but cannot change them. The API rejects writes from non-administrators regardless of the UI.

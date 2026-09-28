@@ -13,25 +13,14 @@ export function KycPage() {
   const [search, setSearch] = useUrlTextParam('search');
   const [selectedId, setSelectedId] = useUrlTextParam('selected');
 
-  const overview = useQuery({
-    queryKey: kycQueryKeys.list({}),
-    queryFn: () => fetchKycCases({}),
-  });
   const list = useQuery({
     queryKey: kycQueryKeys.list({ status, riskLevel, search }),
     queryFn: () => fetchKycCases({ status, riskLevel, search }),
   });
 
-  const pending = overview.data?.filter((kycCase) => kycCase.status === 'PENDING') ?? [];
-
   return (
     <>
       <PageHeader title="KYC" description="Triage fictional onboarding cases by risk, then inspect their synthetic signals." />
-      <div className="metric-strip kyc-metrics" aria-label="KYC queue overview">
-        <div className="metric"><span>Open cases</span><strong>{overview.data ? pending.length : '—'}</strong><small>Awaiting a decision</small></div>
-        <div className="metric"><span>High risk</span><strong>{overview.data ? pending.filter((item) => item.riskLevel === 'HIGH').length : '—'}</strong><small>Pending manual review</small></div>
-        <div className="metric"><span>Flagged cases</span><strong>{overview.data ? pending.filter((item) => item.riskFlagCount > 0).length : '—'}</strong><small>With synthetic signals</small></div>
-      </div>
       <div className="split kyc-layout">
         <Panel
           title="Risk review"
